@@ -1,10 +1,20 @@
 <?php
 if(!defined('ABSPATH'))exit;
 
-function qwc_add_filters_front() {
+function woocommerce_version_check( $version = '3.0' ) {
+  if ( function_exists('WC') ) {
+    if( version_compare( WC()->version, $version, ">=" ) ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function qwc_add_filters_front_legacy() {
 
 	remove_filter('get_post_metadata', 'qtranxf_filter_postmeta', 5);
 	add_filter('get_post_metadata', 'qwc_filter_postmeta', 5, 4);
+
 
 	$use_filters = array(
 		/* do not exist any more */
@@ -95,6 +105,72 @@ function qwc_add_filters_front() {
 	*/
 }
 
+function qwc_add_filters_front() {
+
+	remove_filter('get_post_metadata', 'qtranxf_filter_postmeta', 5);
+	add_filter('get_post_metadata', 'qwc_filter_postmeta', 5, 4);
+
+
+	$use_filters = array(
+		/* do not exist any more */
+		//'option_woocommerce_email_from_name' => 10,
+		//'the_title_attribute' => 10,
+		//'woocommerce_order_product_title' => 10,
+		//'woocommerce_composite_component_title' => 10,
+		//'woocommerce_composite_component_description' => 10,
+		//'woocommerce_composited_product_excerpt' => 10,
+		//'woocommerce_bto_component_title' => 10,
+		//'woocommerce_bto_component_description' => 10,
+		//'woocommerce_bto_product_excerpt' => 10,
+		//'woocommerce_bundled_item_title' => 10,
+		//'woocommerce_bundled_item_description' => 10,
+		//'woocommerce_in_cart_product_title' => 10,
+		//'woocommerce_order_table_product_title' => 10,
+
+		/* one-argument filters */
+		'wp_mail_from_name' => 20,
+		'woocommerce_order_item_display_meta_value' => 20,
+		'woocommerce_order_items_table' => 20,
+		'woocommerce_page_title' => 20,
+		'woocommerce_short_description' => 20,
+		'woocommerce_variation_option_name' => 20,
+		//'woocommerce_shipping_methods' => 20
+
+		/* two-argument filters */
+		'woocommerce_attribute_label' => 20,
+		'woocommerce_cart_shipping_method_full_label' => 20,
+		'woocommerce_cart_tax_totals' => 20,
+		'woocommerce_email_footer_text' => 20,
+		'woocommerce_gateway_description' => 20,
+		'woocommerce_gateway_title' => 20,
+		'woocommerce_gateway_icon' => 20,
+		'woocommerce_order_item_name' => 20,
+		'woocommerce_order_shipping_to_display' => 20,
+		'woocommerce_order_get_tax_totals' => 20,
+		'woocommerce_product_title' => 20,
+		'woocommerce_rate_label' => 20,
+
+		/* three-argument filters */
+		'woocommerce_attribute' => 20,
+		'woocommerce_cart_item_name' => 20,
+		'woocommerce_cart_item_thumbnail' => 20,
+		'woocommerce_order_subtotal_to_display' => 20,
+
+		/* four-argument filters */
+		'woocommerce_format_content' => 20,//function wc_format_content in woocommerce/includes/wc-formatting-functions.php
+
+		//not in front
+		//'woocommerce_email_get_option' => 0
+	);
+
+	foreach ( $use_filters as $name => $priority ) {
+		add_filter( $name, 'qtranxf_useCurrentLanguageIfNotFoundUseDefaultLanguage', $priority );
+	}
+
+	add_filter( 'woocommerce_paypal_args', 'qwc_paypal_args' );
+	add_filter( 'woocommerce_product_get_attributes', 'qwc_get_product_attributes', 5 );
+}
+
 function qwc_filter_postmeta($original_value, $object_id, $meta_key = '', $single = false){
 	//qtranxf_dbg_log_if($object_id==58,'qwc_filter_postmeta: $object_id='.$object_id.' $meta_key:',$meta_key);
 	switch($meta_key){
@@ -162,7 +238,12 @@ function qwc_deliver_webhook_async($webhook_id, $arg)
 add_action( 'woocommerce_deliver_webhook_async', 'qwc_deliver_webhook_async', 5, 2 );
 
 }else{
-	qwc_add_filters_front();
+	if( woocommerce_version_check( '3.0' ) ) {
+		qwc_add_filters_front();
+	}
+	else { //Older WC version
+		qwc_add_filters_front_legacy();
+	}
 }
 
 /**
@@ -174,7 +255,7 @@ add_action( 'woocommerce_deliver_webhook_async', 'qwc_deliver_webhook_async', 5,
 function qwc_get_cart_hash($cart)
 {
 	$lang = qtranxf_getLanguage();
-	$hash = md5(json_encode($cart).$lang); 
+	$hash = md5(json_encode($cart).$lang);
 	return $hash;
 }
 
@@ -186,7 +267,7 @@ function qwc_get_cart_hash($cart)
  */
 function qwc_set_cookies_cart_hash($cart)
 {
-	$hash = qwc_get_cart_hash($cart); 
+	$hash = qwc_get_cart_hash($cart);
 	wc_setcookie( 'woocommerce_cart_hash', $hash );
 }
 
@@ -231,7 +312,7 @@ add_action( 'woocommerce_set_cart_cookies', 'qwc_set_cart_cookies' );
  */
 function qwc_add_to_cart_hash($hash,$cart)
 {
-	$hash = qwc_get_cart_hash($cart); 
+	$hash = qwc_get_cart_hash($cart);
 	if(!headers_sent()){
 		wc_setcookie( 'woocommerce_cart_hash', $hash );
 	}
